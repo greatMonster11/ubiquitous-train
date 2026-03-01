@@ -1,46 +1,49 @@
 import fs from "fs";
+import path from "path";
 import pdf from "pdf-lib";
 import {
   extractTextFromPDF,
   findEmailCoordinates,
   findPhoneCoordinates,
   findLinkedInCoordinates,
-  removeLinksFromPDF,
 } from "./extractor.js";
 import axios from "axios";
 
-async function createCoverPatch(pdfData, outputPath) {
+async function createCoverPatch(pdfData, outputPath, options = {}) {
   try {
     const pdfDoc = await pdf.PDFDocument.load(pdfData);
     const pages = pdfDoc.getPages();
     const extractedText = await extractTextFromPDF(pdfData);
 
     const emailCoords = findEmailCoordinates(extractedText);
-    // console.log("emailCoord:::", emailCoords);
     const phoneCoords = findPhoneCoordinates(extractedText);
-    // console.log("phoneCoords:::", phoneCoords);
-    const linnkedInCoords = await findLinkedInCoordinates(pdfData);
-    // console.log("linnkedInCoords:::", linnkedInCoords);
+    const linkedInCoords = await findLinkedInCoordinates(
+      pdfData,
+      extractedText,
+    );
 
-    for (const page of pages) {
-      const pageIndex = pages.indexOf(page) + 1;
+    pages.forEach((page, pageArrayIndex) => {
+      const pageIndex = pageArrayIndex + 1;
       const emailCoordsForPage = emailCoords.filter(
         (coord) => coord.page === pageIndex,
       );
       const phoneCoordsForPage = phoneCoords.filter(
         (coord) => coord.page === pageIndex,
       );
-      const linkedInCoordsForPage = linnkedInCoords.filter(
+      const linkedInCoordsForPage = linkedInCoords.filter(
         (coord) => coord.page === pageIndex,
       );
 
-      applyPatches(page, emailCoordsForPage);
-      applyPatches(page, phoneCoordsForPage);
-      applyPatches(page, linkedInCoordsForPage);
-    }
+      const mergedCoordinates = mergeCoordinatesForPage([
+        ...emailCoordsForPage,
+        ...phoneCoordsForPage,
+        ...linkedInCoordsForPage,
+      ]);
 
-    let pdfBytes = await pdfDoc.save();
-    // pdfBytes = await removeLinksFromPDF(pdfBytes);
+      applyPatches(page, mergedCoordinates, options);
+    });
+
+    const pdfBytes = await pdfDoc.save();
     fs.writeFileSync(outputPath, pdfBytes);
 
     console.log(`Cover patch created successfully in ${outputPath}`);
@@ -49,49 +52,176 @@ async function createCoverPatch(pdfData, outputPath) {
   }
 }
 
-function applyPatches(page, coordinates) {
+function applyPatches(page, coordinates, options = {}) {
+  const maskStyle = options.maskStyle || "sharded";
+
   for (const coords of coordinates) {
-    page.drawText("".padStart(coords.str.length, " "), {
-      x: coords.x,
-      y: coords.y,
-    });
-    page.drawRectangle({
-      x: coords.x,
-      y: coords.y,
-      width: coords.width,
-      height: coords.fontSize || coords.height,
-      color: pdf.rgb(0, 0, 0),
-    });
+    if (maskStyle === "solid") {
+      page.drawRectangle({
+        x: coords.x,
+        y: coords.y,
+        width: coords.width,
+        height: coords.height,
+        color: pdf.rgb(0, 0, 0),
+      });
+      continue;
+    }
+
+    drawShardedPatch(page, coords);
   }
 }
 
-// Example usage:
-// const inputPath =
-// "/Users/npthanh/Documents/classic-ms-word-resume-template.pdf";
-// "/Users/npthanh/Downloads/Hoa_Do-_CV_-_Hoa_Do.pdf";
-// "/Users/npthanh/Downloads/[Resume][Developer] Phuoc Thanh v2.pdf";
-// "/Users/npthanh/Downloads/CV_Middle.pdf"; // what the fuck is this?
-// "/Users/npthanh/Downloads/Georgios_CV-CPO.pdf";
-// "/Users/npthanh/Downloads/resume-gia.pdf";
-// "/Users/npthanh/Downloads/classic-ms-word-resume-template.pdf";
-//
-const url =
-  // "https://storage.googleapis.com/featurii-dev/2025/01/06/08_32_54/vdp7b/classic-ms-word-resume-template.pdf";
-  // "https://storage.googleapis.com/featurii-dev/2024/12/31/14_28_13/7guec/CV-Phan-Hai-Dang.pdf";
-  // "https://storage.googleapis.com/featurii-dev/2025/01/02/08_51_54/61g6a/CV_Hako_UIUXDesigner.pdf";
-  // "https://storage.googleapis.com/featurii-dev/2024/12/31/13_34_28/zba9n/Steven_Tran's_Resume.pdf";
-  // "https://storage.googleapis.com/featurii-dev/application/pdf/2025/01/10/14_28_16/cx2n4/masked_CV_test.pdf";
-  // "https://storage.googleapis.com/featurii-dev/2025/01/10/02_34_10/47t1v/CV_test.pdf";
-  "https://storage.googleapis.com/featurii-dev/2024/12/31/13_50_56/2vpgy/LE_NGUYEN_MINH_NHUT_-_MARKETING_-_0827707893.pdf";
-const outputPath = "/Users/npthanh/Documents/output_patched.pdf";
+function drawShardedPatch(page, coords) {
+  page.drawRectangle({
+    x: coords.x,
+    y: coords.y,
+    width: coords.width,
+    height: coords.height,
+    color: pdf.rgb(0.12, 0.12, 0.12),
+  });
 
-// createCoverPatch(inputPath, outputPath);
+  const shardWidth = 3;
+  const shardGap = 3;
+  let column = 0;
 
-async function main(url, output) {
-  const res = await axios.get(url, { responseType: "arraybuffer" });
-  const pdfData = res.data;
-  // console.log(pdfData);
-  await createCoverPatch(pdfData, output);
+  for (
+    let x = coords.x;
+    x < coords.x + coords.width;
+    x += shardWidth + shardGap
+  ) {
+    const drawFromBottom = column % 2 === 0;
+    const shardHeight = drawFromBottom
+      ? coords.height * 0.7
+      : coords.height * 0.62;
+    const shardY = drawFromBottom
+      ? coords.y
+      : coords.y + coords.height - shardHeight;
+
+    page.drawRectangle({
+      x,
+      y: shardY,
+      width: Math.min(shardWidth, coords.x + coords.width - x),
+      height: shardHeight,
+      color: pdf.rgb(0, 0, 0),
+    });
+
+    column += 1;
+  }
 }
 
-main(url, outputPath);
+function mergeCoordinatesForPage(coordinates) {
+  const expandedCoordinates = coordinates
+    .filter(Boolean)
+    .map((coord) => {
+      const paddingX = Math.max(1.5, coord.height * 0.15);
+      const paddingY = Math.max(1.2, coord.height * 0.12);
+      return {
+        ...coord,
+        x: coord.x - paddingX,
+        y: coord.y - paddingY,
+        width: coord.width + paddingX * 2,
+        height: coord.height + paddingY * 2,
+      };
+    })
+    .sort((a, b) => a.x - b.x);
+
+  const merged = [];
+
+  for (const rect of expandedCoordinates) {
+    const previous = merged[merged.length - 1];
+    if (!previous) {
+      merged.push({ ...rect });
+      continue;
+    }
+
+    const intersectsX = rect.x <= previous.x + previous.width;
+    const intersectsY =
+      rect.y <= previous.y + previous.height &&
+      previous.y <= rect.y + rect.height;
+
+    if (!intersectsX || !intersectsY) {
+      merged.push({ ...rect });
+      continue;
+    }
+
+    const newX = Math.min(previous.x, rect.x);
+    const newY = Math.min(previous.y, rect.y);
+    const newRight = Math.max(previous.x + previous.width, rect.x + rect.width);
+    const newTop = Math.max(previous.y + previous.height, rect.y + rect.height);
+
+    previous.x = newX;
+    previous.y = newY;
+    previous.width = newRight - newX;
+    previous.height = newTop - newY;
+  }
+
+  return merged;
+}
+
+function parseCliArgs(argv) {
+  const args = {
+    input: null,
+    url: null,
+    output: path.resolve(process.cwd(), "output_patched.pdf"),
+    maskStyle: "sharded",
+  };
+
+  for (let i = 0; i < argv.length; i++) {
+    const key = argv[i];
+    const value = argv[i + 1];
+
+    if (key === "--input" && value) {
+      args.input = value;
+      i += 1;
+      continue;
+    }
+
+    if (key === "--url" && value) {
+      args.url = value;
+      i += 1;
+      continue;
+    }
+
+    if (key === "--output" && value) {
+      args.output = value;
+      i += 1;
+      continue;
+    }
+
+    if (key === "--style" && value) {
+      if (value === "solid" || value === "sharded") {
+        args.maskStyle = value;
+      }
+      i += 1;
+    }
+  }
+
+  return args;
+}
+
+async function loadPdfData({ input, url }) {
+  if (input) {
+    return fs.readFileSync(input);
+  }
+
+  if (url) {
+    const response = await axios.get(url, { responseType: "arraybuffer" });
+    return response.data;
+  }
+
+  throw new Error("Provide --input <file-path> or --url <pdf-url>.");
+}
+
+async function main() {
+  try {
+    const args = parseCliArgs(process.argv.slice(2));
+    const pdfData = await loadPdfData(args);
+    await createCoverPatch(pdfData, args.output, {
+      maskStyle: args.maskStyle,
+    });
+  } catch (error) {
+    console.error("Failed to patch PDF:", error.message);
+  }
+}
+
+main();

@@ -63,6 +63,7 @@ Suggested `package.json` scripts if you add tests:
 
 - `"test": "node --test"`
 - `"test:one": "node --test"` (pass file path after `--`)
+- `"test:remote": "RUN_REMOTE_TESTS=1 node --test remote-cv.test.js"`
 - Example:
   - `npm run test:one -- test/extractor.test.js`
 

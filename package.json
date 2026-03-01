@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test",
+    "test:remote": "RUN_REMOTE_TESTS=1 node --test remote-cv.test.js"
   },
   "type": "module",
   "keywords": [],
