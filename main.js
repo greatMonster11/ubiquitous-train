@@ -113,46 +113,63 @@ function mergeCoordinatesForPage(coordinates) {
   const expandedCoordinates = coordinates
     .filter(Boolean)
     .map((coord) => {
-      const paddingX = Math.max(1.5, coord.height * 0.15);
-      const paddingY = Math.max(1.2, coord.height * 0.12);
+      const fontSize = Number(coord.fontSize) || Number(coord.height) || 10;
+      const paddingX = Math.max(1.5, fontSize * 0.25);
+      const paddingY = Math.max(1.2, fontSize * 0.2);
       return {
         ...coord,
+        fontSize,
         x: coord.x - paddingX,
         y: coord.y - paddingY,
         width: coord.width + paddingX * 2,
         height: coord.height + paddingY * 2,
       };
     })
-    .sort((a, b) => a.x - b.x);
+    .sort((a, b) => {
+      if (a.page !== b.page) return a.page - b.page;
+      if (Math.abs(a.y - b.y) > 0.001) return b.y - a.y;
+      return a.x - b.x;
+    });
 
   const merged = [];
 
   for (const rect of expandedCoordinates) {
     const previous = merged[merged.length - 1];
-    if (!previous) {
+    if (!previous || previous.page !== rect.page) {
       merged.push({ ...rect });
       continue;
     }
 
-    const intersectsX = rect.x <= previous.x + previous.width;
-    const intersectsY =
-      rect.y <= previous.y + previous.height &&
-      previous.y <= rect.y + rect.height;
+    const previousRight = previous.x + previous.width;
+    const rectRight = rect.x + rect.width;
+    const previousTop = previous.y + previous.height;
+    const rectTop = rect.y + rect.height;
 
-    if (!intersectsX || !intersectsY) {
+    const horizontalGap = rect.x - previousRight;
+    const intersectsX = horizontalGap <= 0;
+    const maxGap = Math.max(previous.fontSize || 10, rect.fontSize || 10) * 0.6;
+    const closeEnoughX = horizontalGap <= maxGap;
+
+    const overlapY =
+      Math.min(previousTop, rectTop) - Math.max(previous.y, rect.y);
+    const minHeight = Math.min(previous.height, rect.height);
+    const enoughOverlapY = overlapY >= minHeight * 0.35;
+
+    if (!(enoughOverlapY && (intersectsX || closeEnoughX))) {
       merged.push({ ...rect });
       continue;
     }
 
     const newX = Math.min(previous.x, rect.x);
     const newY = Math.min(previous.y, rect.y);
-    const newRight = Math.max(previous.x + previous.width, rect.x + rect.width);
-    const newTop = Math.max(previous.y + previous.height, rect.y + rect.height);
+    const newRight = Math.max(previousRight, rectRight);
+    const newTop = Math.max(previousTop, rectTop);
 
     previous.x = newX;
     previous.y = newY;
     previous.width = newRight - newX;
     previous.height = newTop - newY;
+    previous.fontSize = Math.max(previous.fontSize || 0, rect.fontSize || 0);
   }
 
   return merged;

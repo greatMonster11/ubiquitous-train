@@ -176,7 +176,8 @@ function buildTextLines(textWithCoords, yTolerance = DEFAULT_LINE_Y_TOLERANCE) {
   for (const token of sortedTokens) {
     const adaptiveTolerance = Math.max(
       yTolerance,
-      (token.fontSize || 10) * 0.2,
+      (token.fontSize || 10) * 0.25,
+      1.6,
     );
     let nearestLine = null;
     let nearestDistance = Number.POSITIVE_INFINITY;
@@ -215,6 +216,7 @@ function buildLineTextMap(line) {
   const tokens = [...line.tokens].sort((a, b) => a.x - b.x);
   let text = "";
   const charToTokenIndex = [];
+  const charToTokenCharIndex = [];
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
@@ -228,7 +230,7 @@ function buildLineTextMap(line) {
       const prevRight = prev.x + Math.max(prev.width, 0);
       const gap = token.x - prevRight;
       const avgFontSize = ((prev.fontSize || 10) + (token.fontSize || 10)) / 2;
-      const minGapForSpace = Math.max(1.2, avgFontSize * 0.2);
+      const minGapForSpace = Math.max(1.0, avgFontSize * 0.18);
       const startsWithPunctuation = /^[,.;:!?)}\]]/.test(tokenText);
       const endsWithJoinChar = /[@(\[{]$/.test(text);
 
@@ -240,12 +242,14 @@ function buildLineTextMap(line) {
       ) {
         text += " ";
         charToTokenIndex.push(-1);
+        charToTokenCharIndex.push(-1);
       }
     }
 
     text += tokenText;
     for (let j = 0; j < tokenText.length; j++) {
       charToTokenIndex.push(i);
+      charToTokenCharIndex.push(j);
     }
   }
 
@@ -254,7 +258,19 @@ function buildLineTextMap(line) {
     text,
     tokens,
     charToTokenIndex,
+    charToTokenCharIndex,
   };
+}
+
+function getTokenCharWidth(token) {
+  const length = token?.str?.length || 0;
+  const width = Number(token?.width) || 0;
+  if (length > 0 && width > 0) {
+    return width / length;
+  }
+
+  const fontSize = Number(token?.fontSize) || Number(token?.height) || 10;
+  return fontSize * 0.6;
 }
 
 function createCoordinateFromMatchRange(line, start, end, str) {
@@ -275,9 +291,15 @@ function createCoordinateFromMatchRange(line, start, end, str) {
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
+  let maxFontSize = 0;
 
-  for (const index of tokenIndexes) {
-    const token = line.tokens[index];
+  for (let i = start; i < end && i < line.charToTokenIndex.length; i++) {
+    const tokenIndex = line.charToTokenIndex[i];
+    if (tokenIndex < 0) {
+      continue;
+    }
+
+    const token = line.tokens[tokenIndex];
     const tokenWidth = Math.max(Number(token.width) || 0, 0);
     const tokenHeight = Math.max(
       Number(token.height) || 0,
@@ -285,13 +307,23 @@ function createCoordinateFromMatchRange(line, start, end, str) {
     );
     const tokenLeft = Number(token.x) || 0;
     const tokenBottom = Number(token.y) || 0;
-    const tokenRight = tokenLeft + tokenWidth;
     const tokenTop = tokenBottom + tokenHeight;
+    const charWidth = getTokenCharWidth(token);
+    const charOffset = line.charToTokenCharIndex?.[i];
 
-    minX = Math.min(minX, tokenLeft);
+    let charLeft = tokenLeft;
+    let charRight = tokenLeft + Math.max(tokenWidth, charWidth);
+
+    if (Number.isFinite(charOffset) && charOffset >= 0) {
+      charLeft = tokenLeft + charWidth * charOffset;
+      charRight = tokenLeft + charWidth * (charOffset + 1);
+    }
+
+    minX = Math.min(minX, charLeft);
     minY = Math.min(minY, tokenBottom);
-    maxX = Math.max(maxX, tokenRight);
+    maxX = Math.max(maxX, charRight);
     maxY = Math.max(maxY, tokenTop);
+    maxFontSize = Math.max(maxFontSize, token.fontSize || tokenHeight || 0);
   }
 
   if (
@@ -310,6 +342,7 @@ function createCoordinateFromMatchRange(line, start, end, str) {
     width: Math.max(1, maxX - minX),
     height: Math.max(1, maxY - minY),
     page: line.page,
+    fontSize: maxFontSize || undefined,
   };
 }
 
