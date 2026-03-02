@@ -11,12 +11,12 @@ The tool extracts PDF text/coordinates, detects contact spans, maps them back to
 ## Requirements
 
 - Node.js 18+ (Node 20+ recommended)
-- npm
+- Bun 1.1+
 
 ## Install
 
 ```bash
-npm install
+bun install
 ```
 
 ## Usage
@@ -26,13 +26,13 @@ Run with either a local file path or a remote URL.
 ### From local file
 
 ```bash
-node main.js --input /path/to/cv.pdf --output /path/to/output_patched.pdf --style sharded
+bun run main.js --input /path/to/cv.pdf --output /path/to/output_patched.pdf --style sharded
 ```
 
 ### From URL
 
 ```bash
-node main.js --url "https://example.com/cv.pdf" --output ./output_patched.pdf --style solid
+bun run main.js --url "https://example.com/cv.pdf" --output ./output_patched.pdf --style solid
 ```
 
 ### CLI options
@@ -60,7 +60,7 @@ Notes:
 ### Unit tests
 
 ```bash
-npm test
+bun test
 ```
 
 ### Remote CV integration tests
@@ -68,7 +68,7 @@ npm test
 Runs patching against configured public CV URLs.
 
 ```bash
-npm run test:remote
+bun run test:remote
 ```
 
 This suite is opt-in and internally sets `RUN_REMOTE_TESTS=1`.
@@ -89,11 +89,16 @@ This suite is opt-in and internally sets `RUN_REMOTE_TESTS=1`.
 ## Quick commands
 
 - Syntax check:
-  - `node --check main.js`
-  - `node --check extractor.js`
-  - `node --check pdf2html.js`
+  - `bun run --check main.js`
+  - `bun run --check extractor.js`
+  - `bun run --check pdf2html.js`
 - Run tool:
-  - `node main.js --input /path/to/cv.pdf --output ./patched.pdf`
+  - `bun run main.js --input /path/to/cv.pdf --output ./patched.pdf`
 - Run tests:
-  - `npm test`
-  - `npm run test:remote`
+  - `bun test`
+  - `bun run test:remote`
+
+## Notes on Bun
+
+- Bun will generate `bun.lockb` on install.
+- If you previously used npm, you can remove `package-lock.json` after switching to Bun to avoid confusion.

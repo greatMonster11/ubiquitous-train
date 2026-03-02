@@ -5,7 +5,7 @@ Guidance for coding agents working in `patch_pdf`.
 ## Project Snapshot
 
 - Runtime: Node.js with ES modules (`"type": "module"`).
-- Package manager: npm (`package-lock.json` is present).
+- Package manager: Bun (`bun.lockb` is generated on install).
 - Main scripts/files in repo root:
   - `main.js`: downloads a PDF and applies masking patches.
   - `extractor.js`: extracts text/coords and detects email/phone/LinkedIn locations.
@@ -16,7 +16,7 @@ Guidance for coding agents working in `patch_pdf`.
 
 - Use a modern Node.js version (Node 18+ recommended; Node 20+ preferred).
 - Install deps:
-  - `npm install`
+  - `bun install`
 - Run scripts from repository root:
   - `/Users/npthanh/Documents/sample/patch_pdf`
 
@@ -27,13 +27,13 @@ This repository currently has no true build step and no lint setup.
 ### Build / Run
 
 - Run main flow:
-  - `node main.js`
+  - `bun run main.js`
 - Run PDF-to-HTML helper script:
-  - `node pdf2html.js`
+  - `bun run pdf2html.js`
 - Quick syntax check for all JS files:
-  - `node --check main.js`
-  - `node --check extractor.js`
-  - `node --check pdf2html.js`
+  - `bun run --check main.js`
+  - `bun run --check extractor.js`
+  - `bun run --check pdf2html.js`
 
 ### Lint / Format
 
@@ -43,29 +43,29 @@ This repository currently has no true build step and no lint setup.
 
 ### Tests
 
-- Current `npm test` script intentionally fails:
-  - `npm test`
+- Current `bun test` script intentionally fails:
+  - `bun test`
   - Expected behavior today: exits with error (`"no test specified"`).
 - No committed test files exist at the moment.
 
 If adding tests, prefer Node's built-in test runner to keep dependencies light:
 
 - Run all tests:
-  - `node --test`
+  - `bun test`
 - Run a single test file:
-  - `node --test path/to/file.test.js`
+  - `bun test path/to/file.test.js`
 - Run tests matching a name/pattern:
-  - `node --test --test-name-pattern "mask email"`
+  - `bun test --test-name-pattern "mask email"`
 - Run a single test file + name pattern:
-  - `node --test path/to/file.test.js --test-name-pattern "phone"`
+  - `bun test path/to/file.test.js --test-name-pattern "phone"`
 
 Suggested `package.json` scripts if you add tests:
 
-- `"test": "node --test"`
-- `"test:one": "node --test"` (pass file path after `--`)
-- `"test:remote": "RUN_REMOTE_TESTS=1 node --test remote-cv.test.js"`
+- `"test": "bun test"`
+- `"test:one": "bun test"` (pass file path after `--`)
+- `"test:remote": "RUN_REMOTE_TESTS=1 bun test remote-cv.test.js"`
 - Example:
-  - `npm run test:one -- test/extractor.test.js`
+  - `bun run test:one -- test/extractor.test.js`
 
 ## Repository-Specific Coding Guidelines
 
@@ -146,9 +146,9 @@ If any of these files are added later, treat them as authoritative and merge the
 
 ## Quick Command Reference
 
-- Install deps: `npm install`
-- Run app: `node main.js`
-- Run helper script: `node pdf2html.js`
-- Run all tests (when added): `node --test`
-- Run single test file (when added): `node --test test/file.test.js`
-- Run matching tests (when added): `node --test --test-name-pattern "pattern"`
+- Install deps: `bun install`
+- Run app: `bun run main.js`
+- Run helper script: `bun run pdf2html.js`
+- Run all tests (when added): `bun test`
+- Run single test file (when added): `bun test test/file.test.js`
+- Run matching tests (when added): `bun test --test-name-pattern "pattern"`

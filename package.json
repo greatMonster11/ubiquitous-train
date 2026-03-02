@@ -1,10 +1,12 @@
 {
   "name": "patch_pdf",
   "version": "1.0.0",
+  "packageManager": "bun@1.1.0",
   "main": "index.js",
   "scripts": {
-    "test": "node --test",
-    "test:remote": "RUN_REMOTE_TESTS=1 node --test remote-cv.test.js"
+    "start": "bun run main.js",
+    "test": "bun test",
+    "test:remote": "RUN_REMOTE_TESTS=1 bun test remote-cv.test.js"
   },
   "type": "module",
   "keywords": [],
